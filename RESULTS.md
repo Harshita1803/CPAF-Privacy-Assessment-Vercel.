@@ -1,0 +1,109 @@
+# Results record
+
+## Final continuation runs
+
+Environment: bundled Python 3.12.14, NumPy 2.3.5, pandas 3.0.1, SciPy 1.18.1, scikit-learn 1.9.1, matplotlib 3.11.2; Streamlit 1.66.1 was installed for startup verification.
+
+- Privacy end-to-end: cpaf_advanced.py --n 1000 --k 5 --l 2 --t 0.2 --no-ml --output-dir cpaf_outputs/final_privacy_run completed. Retained 11/1,000 rows (1.1%); minimum retained group size 5. Both remaining groups had one distinct sensitive value, so l=2 passed 0% of groups. t=0.2 passed 100% because the two groups contained only the same observed sensitive value and had TV distance 0. This is a useful reminder that t-closeness diagnostics do not imply l-diversity. The very low retention reflects this small sample and fine QI cross-product.
+- Repeated utility: cpaf_advanced.py --repeated-ml --n 5000 --repeats 3 --k 5 --seed 42 --output-dir cpaf_outputs/final_repeated_ml completed. Mean ROC-AUC ± standard deviation: Raw 0.7152 ± 0.0213; Generalized 0.7164 ± 0.0255; Generalized+k=5 0.6861 ± 0.0422. Mean PR-AUC: 0.2052, 0.2148 and 0.1824 respectively. The age-band TPR gap ranged from 0 to 0.0572 across repeats; this is descriptive of the synthetic target only.
+- Shadow attack: cpaf_advanced.py --attack-audit --n 3000 --k 2 --seed 19 --output-dir cpaf_outputs/final_attack_run completed with pairwise-disjoint partitions. Attack AUCs were Raw 0.5050, Generalized 0.5067 and Generalized+k=2 0.5295 against a 0.5 chance baseline. No exact duplicate rows were found; 100% were rare under exact age/region/city/merchant/amount QIs; sampled nearest-neighbor median distance was 0.3988. These are synthetic proxies and one attack result, not privacy evidence.
+- Parameter sweep: cpaf_advanced.py --sweep --sweep-n 600 --sweep-k 1 5 20 --sweep-l 2 3 --sweep-t 0.1 0.2 --sweep-levels 1 2 --seed 123 --output-dir cpaf_outputs/final_sweep_metrics completed 24 configurations; 16 were non-dominated under the stated retention/worst-TV objectives. The CSV also records generation, generalization, suppression and diagnostic runtimes separately. cpaf_advanced.py --plot-sweep-only --output-dir cpaf_outputs/final_sweep_metrics regenerated the frontier CSV, JSON and PNG from the saved sweep CSV.
+- Configuration smoke run: cpaf_advanced.py --config configs/default_experiment.json --no-ml --n 600 --output-dir cpaf_outputs/config_smoke completed. The manifest records the config file, resolved CLI settings and original JSON values. With n=600 and k=5, suppression retained 0 rows; this is correctly reported as an empty release, not a successful useful release.
+- DP audit run: cpaf_advanced.py --ml-only --n 10000 --k 5 --seed 42 --output-dir cpaf_outputs/final_ml_dp_audit completed. For sigma=1, the custom accountant reports epsilon_experimental_unverified=6.70 at delta=0.0005, with test ROC-AUC 0.5863 and MIA AUC 0.5168. formal_guarantee_claimed is False. These values are experimental diagnostics only.
+- Final automated suite: python -m unittest discover -s tests -v — 20 tests passed. Python compileall over CLI, ML, dashboard, package and tests completed with exit code 0.
+- Dashboard: installed Streamlit 1.66.1; python -m streamlit run app.py --server.headless true --server.address 127.0.0.1 --server.port 8767 started successfully. GET /_stcore/health returned ok. The temporary server was stopped; full page-by-page browser automation was not performed.
+
+All continuation outputs were written into separate output directories. Existing reports, presentation and the original evidence templates were not modified.
+
+## Independent final audit rerun (2026-10-24)
+
+Fresh outputs are isolated in `cpaf_outputs/audit_verified/`.
+
+- Privacy CLI rerun: n=1,000, k=5 retained 11 rows (1.1%) in two groups, each at least five rows. k holds for the released rows and declared five QIs. Distinct-l minimum was 1 (0% of groups meet l=2); categorical-TV t=0.2 passed 100% because group distributions matched the released global distribution (worst TV=0). l/t remain diagnostics, not enforcement.
+- Repeated ML smoke run: n=500, seed=31, two stratified 75/25 splits. ROC-AUC mean (std): Raw 0.7196 (0.0113), Generalized 0.7722 (0.0011), Generalized+k=2 0.7513 (0.1484). All 18 age-group-by-run rows were flagged for small subgroup denominators. F1 was zero at the fixed 0.5 threshold in this small run. Treat this as execution validation, not a stable model or fairness estimate.
+- Shadow attack rerun: n=3,000, seed=19, k=2; all partitions disjoint. Attack AUC and stratified-bootstrap 95% interval: Raw 0.5050 [0.4723, 0.5389], Generalized 0.5067 [0.4755, 0.5402], Generalized+k=2 0.5295 [0.4995, 0.5635]. Chance AUC=0.5. These intervals do not establish privacy and cover only test sampling for one attack and seed.
+- Sweep rerun: 24 rows, 16 Pareto rows; saved-CSV regeneration also produced 16 frontier rows and a 51,264-byte PNG. Eight configurations suppressed every row and therefore had undefined worst-TV values; these NaN objective rows were excluded explicitly from the frontier. Pareto objectives remain retention maximize and worst categorical-TV minimize.
+- Post-fix validation: `python -m unittest discover -s tests -v` passed 20 tests; `python -m compileall -q cpaf cpaf_advanced.py cpaf_ml.py app.py tests` exited 0. The current restricted environment blocked Streamlit health-check socket access, so this audit marks the dashboard health check as not reproduced. See `docs/FINAL_AUDIT.md` for audit scope and exact interpreter commands.
+
+## Differential privacy implementation audit (2026-10-24)
+
+The earlier epsilon values are historical outputs from the seeded implementation and must not be treated as guarantees. The direct audit found that public-seeded NumPy randomness controlled both DP sampling and Gaussian noise. The current code uses OS-backed `secrets.SystemRandom`, rejects an explicit DP seed, fixes delta at public 1e-5 per candidate, and marks each row `EXPERIMENTAL_UNVERIFIED`. The sampled-Gaussian accountant remains custom and unvalidated; the complete CLI (stratified selection, metric releases, and multiple sigma candidates) has no formal guarantee.
+
+- A requested n=3,000 ML-only run initially failed because the old MIA code demanded 2,000 members and 2,000 nonmembers even though the pools were smaller. The attack sample now uses the available minimum and writes requested/actual sizes to the manifest. With n=3,000, seed=19, k=2, actual member/nonmember sample sizes were 900 each, versus 2,000 requested.
+- Successful command: `python cpaf_advanced.py --ml-only --n 3000 --k 2 --seed 19 --output-dir cpaf_outputs/dp_audit_verified`. It completed and wrote the utility, attack, DP result, manifest and plot artifacts. Across sigma values 0.7, 1.0, 1.5, 3.0, 6.0, the CSV's `epsilon_experimental_unverified` values were 18.15, 8.40, 4.23, 1.77, 0.84 at delta=1e-5. Every row had `formal_guarantee_claimed=false`, `verification_status=EXPERIMENTAL_UNVERIFIED`, and the OS-backed randomness/accountant/scope metadata. These numbers remain diagnostic only; separate candidate models and private-data metrics are not composed or covered.
+- Test suite now has 25 tests; it includes an analytic alpha=2 check, q=1 Gaussian case, RDP step/run composition monotonicity, clipping, invalid parameters, empty inputs, deterministic test-only randomness, OS-random-source use, and verification-status checks. It does not prove a formal DP theorem or validate floating-point Gaussian sampling.
+- Failed attempts, recorded honestly: n=3,000 and n=5,000 failed before the sample-size correction because member/nonmember pools were smaller than requested. The same n=3,000 command succeeded after the correction. The final successful run and current outputs are in `cpaf_outputs/dp_audit_verified/`.
+
+See `docs/DP_AUDIT.md`, `docs/DP_METHODOLOGY.md`, and `docs/DP_THREAT_MODEL.md` for operation-level scope and the exact guarantee blockers.
+
+## Trusted-library migration investigation (2026-10-24)
+
+- Bundled runtime: Python 3.12.14, NumPy 2.3.5, SciPy 1.18.1, scikit-learn 1.9.1. Opacus, PyTorch, Google dp-accounting, TensorFlow Privacy, and diffprivlib were absent.
+- Official documentation review found Opacus secure mode requires `torchcsprng`; published torchcsprng Windows wheels are for CPython 3.7–3.9, while this environment is Python 3.12. Opacus was not installable/testable here.
+- diffprivlib 0.6.6 is Python 3.12-compatible and its stated NumPy/scikit-learn/SciPy minimums are satisfied. It offers a different objective-perturbation logistic regression, but explicit public `data_norm`, secure randomness and actual library accountant behavior still require runtime verification.
+- Actual install probe `python -m pip download --no-deps diffprivlib==0.6.6 --dest $env:TEMP\cpaf_dp_library_wheels` failed after DNS resolution errors to `pypi.org`; no dependency change was made. No third-party-library experiment ran and no library guarantee is claimed. See `docs/DP_LIBRARY_MIGRATION_REPORT.md`.
+- A separate custom-code smoke fit (not a library experiment) used 40 synthetic rows, q=0.5, sigma=1.5, 3 steps and fixed delta=1e-5. It produced `epsilon_experimental_unverified=4.240932`, status `EXPERIMENTAL_UNVERIFIED`, and no formal claim. The current 25-test suite passed and project compile checks exited 0. The DP dashboard now states that library migration is inactive and links the migration report.
+
+## DP library environment follow-up
+
+- This turn confirmed Python 3.12.14 and dependency versions NumPy 2.3.5, SciPy 1.18.1, scikit-learn 1.9.1, joblib 1.6.0, setuptools 84.1.0. `pip show` reported diffprivlib, Opacus, PyTorch and torchcsprng absent.
+- One `Resolve-DnsName pypi.org` probe returned `Access is denied`. Per instruction, no repeated network probe or pip download was attempted. No package was installed and no library-based training ran.
+- Added `requirements-dp-library.txt`, `scripts/dp_diffprivlib_smoke.py`, and `docs/DP_ENVIRONMENT_SETUP.md`. The proposed exact pins satisfy diffprivlib 0.6.6's published minimum versions but are not installed/tested as a combination here. The script emits `EXPERIMENTAL_UNVERIFIED`, never `VERIFIED_BOUND`.
+- Final validation rerun with the bundled interpreter: `& $py -m unittest discover -s tests -q` reported `Ran 25 tests ... OK`; `& $py -m compileall -q cpaf cpaf_advanced.py cpaf_ml.py app.py tests scripts` exited 0 (`COMPILEALL_EXIT=0`).
+- The POC was compile-checked but not executed. No result JSON or environment freeze was produced; do not infer package integration or a privacy bound from these checks. This host's library migration remains unrun; follow `docs/DP_ENVIRONMENT_SETUP.md` on a network-enabled Python 3.12 machine.
+
+## Research-readiness rerun (2026-10-24)
+
+All new artifacts are isolated under `cpaf_outputs/readiness_20261024_release/`; no previous results were changed. Commands are recorded in `docs/RESEARCH_READINESS.md`.
+
+- Privacy, n=300, seed=6, k=2: retained 55/300 rows (18.33%), minimum released group size 2. Distinct l=2 passed 0%; categorical-TV t=0.2 passed 100%, worst TV=0. This is only a diagnostic over this generated release.
+- Repeated utility, n=500, seed=31, 2 stratified splits: ROC-AUC mean (sample SD) was Raw 0.7196 (0.0113), Generalized 0.7722 (0.0011), Generalized+k=2 0.7513 (0.1484). This is a partly circular synthetic label-recovery task; SD is descriptive because repeated test folds can overlap.
+- Shadow attack, n=1,000, seed=19, k=2: partitions were disjoint. AUC [test-bootstrap 95% interval] was Raw 0.4951 [0.4338, 0.5486], Generalized 0.4763 [0.4224, 0.5325], Generalized+k=2 0.4939 [0.4031, 0.5801]. Chance is 0.5; this one attack/seed does not establish privacy.
+- Sweep, n=150, seed=7, k={1,5}, l=2 diagnostic, t=0.2 diagnostic, hierarchy level=1: two configs, one non-dominated. Plot was regenerated from the saved CSV; its frontier row count matched the saved frontier (1), PNG 51,565 bytes.
+- Existing output collision attempt was rejected with exit 2; a separate repeat-run guard check confirmed the prior manifest SHA-256 was unchanged. All five fresh experiment/plot commands exited 0. Final suite: 32 tests passed; compileall exited 0.
+- One earlier full-suite attempt after adding output-safety tests failed because `TemporaryDirectory()` selected a sandbox-protected system temp path. The tests were moved under `tests/_repro_tmp`; the final full suite then passed. The failure was environmental test setup, not suppressed or counted as success.
+- Streamlit imports in the bundled runtime but was not launched because this audit explicitly prohibited network access. No app runtime check is claimed from this run.
+
+## Faculty demo verification (2026-10-24)
+
+- Environment: bundled Python 3.12.14; Streamlit 1.66.1. `& $py -m streamlit --version` exited 0. Offline inspection found the root provider evidence template has 21 rows, 0 marked reviewed, and 0 nonempty raw scores. The existing `dp_audit_verified/ml_dp_results.csv` contains five rows, all `EXPERIMENTAL_UNVERIFIED` with `formal_guarantee_claimed=False`.
+- The local command `& $py -m streamlit run app.py --server.headless true --server.address 127.0.0.1 --server.port 8767` was attempted. It printed Streamlit's usage-statistics notice and remained running, but `Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8767/_stcore/health -TimeoutSec 5` failed with `An attempt was made to access a socket in a way forbidden by its access permissions. (127.0.0.1:8767)`. The process was stopped. No alternate port or permission escalation was attempted.
+- In-process `streamlit.testing.v1.AppTest` was attempted for the landing and evidence sections. It emitted a missing `ScriptRunContext` warning, did not return rendered elements within the attempt, and was interrupted. No UI interaction or rendered section is claimed as verified. The earlier successful health-check entry above is historical and was not reproduced in this session.
+- App fixes: visible branding now consistently uses CPAF 2.0; DP saved-file lookup points to the actual `cpaf_outputs` root paths; malformed evidence/result CSVs display an app error instead of propagating parser exceptions; synthetic-only labels were added to relevant sections. These changes passed the existing regression suite (32 tests) and compileall (exit 0), but were not verified in a rendered browser.
+- New guide: `docs/FACULTY_DEMO_GUIDE.md`. Existing experiment outputs, backups, report and presentation files were not changed.
+- Follow-up audit attempt at 2026-10-24 18:46 +05:30: `py -3.12 --version` could not start the WindowsApps launcher; the bundled interpreter reported Python 3.12.14 and `pip show diffprivlib` reported not found. `.venv-dp-library` was absent. A single bounded `Resolve-DnsName pypi.org -DnsOnly -QuickTimeout` returned `Access is denied`; installation stopped with no retry. Tests passed 25/25 (7.825s, exit 0) and compileall (including scripts) exited 0. No library POC output was created.
+
+## Earlier upgraded runs
+
+## Persistent evidence workflow regression checks (2026-10-24)
+
+- Added schema-checked CSV loading, including duplicate/missing-header and row-width checks, and an atomic save to the separate working review path `cpaf_outputs/evidence_reviews/evidence_register_reviewed.csv`. Replacing that file requires explicit UI confirmation and leaves a timestamped backup. The original `cpaf_outputs/evidence_register_template.csv` is protected from use as a save destination.
+- The dashboard now reports reviewed, incomplete, and score-eligible counts from the same shared row validation used by provider scoring. Empty fields remain empty; edits are not marked reviewed or assigned scores automatically. CSV extra columns are retained.
+- Focused/full verification with the bundled Python 3.12.14 interpreter: `& $py -m unittest discover -s tests -q` reported 40 tests and `OK`; `& $py -m compileall -q cpaf cpaf_advanced.py cpaf_ml.py app.py tests scripts` exited 0; imports of the evidence formatter and load/save helpers succeeded. Persistence tests used temporary directories under `tests/` and did not touch existing results.
+- Streamlit AppTest was attempted but did not return rendered elements in this sandbox; the interactive save/reload controls were not verified in a browser. See `docs/EVIDENCE_REVIEW_WORKFLOW.md` for intended behavior and scope.
+
+## Microaggregation dtype correction (2026-10-24)
+
+- Root cause: the dashboard passes integer-typed `age` and floating-point `amount_inr` to `cpaf.core.microaggregate`. The sorted-block mean assignment into copied `age` raised on fractional results such as 18.8. Selected columns now use floating-point dtype for their aggregated output; means are not rounded or truncated. Group sizes that are valid integer-valued floats are normalized to `int` before block iteration.
+- Reproduced the dashboard function sequence in memory using `generate_synthetic(1000, 42)`, `generalize(..., 1, 1, 1, 1)`, `suppress_k(..., k=5)`, and `microaggregate(..., ["age", "amount_inr"], group_size=5)`. It completed: 1,000 input records, 11 k-released records, 1,000 microaggregated records, `age` output dtype `float64`, RMSE diagnostics for both selected columns, and `k_satisfied=True`. The 11-row retention is the existing whole-equivalence-class suppression result for that sample/configuration; no transformation logic or saved result was modified.
+- Focused tests include the exact fractional mean 18.8, integer-valued group means, float-valued integer group size, empty and missing inputs, NaN/positive infinity/negative infinity, and invalid group sizes. Full verification: `& $py -m unittest discover -s tests -q` reported 42 tests and `OK`; `& $py -m compileall -q cpaf cpaf_advanced.py cpaf_ml.py app.py tests scripts` exited 0.
+- The function path was exercised directly in Python, but the live dashboard was not exercised in a browser. No UI-level completion claim is made. Historical experiment outputs were not written or changed.
+
+Environment: bundled Python 3.12.14, NumPy 2.3.5, pandas 3.0.1, SciPy 1.18.1, scikit-learn 1.9.1, matplotlib 3.11.2.
+
+- `python cpaf_advanced.py --n 50000 --k 5 --no-ml`: completed. Validation passed for 50,000 generated rows. Generalization retained 100%; generalization plus k=5 suppression retained 96.88% (48,440 rows; 1,560 suppressed), and minimum released group size was 5. Mean categorical TV diagnostic was 0.0506; worst group TV was 0.9802, while 96.13% of groups met t=0.2. Minimum distinct sensitive values was 1 and only 3.58% of groups met l=2, so the release does not pass l=2 globally. Exact values are in `cpaf_outputs/privacy_lab_metrics.csv` and `privacy_diagnostics.csv`.
+- `python cpaf_advanced.py --ml-only --n 10000 --k 5 --seed 42`: completed on 7,000 train and 3,000 common test rows; the synthetic positive rate was 9.0%. Best raw model was Random Forest ROC-AUC 0.7502. Generalized + k-suppressed training retained 4,567/7,000 rows; its Gradient Boosting ROC-AUC was 0.6429. In the confidence attack, raw overfit Random Forest MIA AUC was 0.7179 versus 0.5323 for the regularized raw model. DP-SGD outputs label epsilon as unverified; e.g. sigma=1 reports 6.70, `formal_guarantee_claimed=false`, and held-out ROC-AUC 0.5863. These single-seed synthetic results are illustrative observations, not privacy guarantees or payment-app measurements.
+- `python -m unittest discover -s tests -v`: 10 tests passed.
+
+The ML run and privacy run have separate manifests because they use separate sample sizes. These runs replace some prior generated CSV/PNG outputs but did not modify source evidence files, the pre-existing evidence matrix templates, or user-provided report/presentation artifacts.
+
+## Researched evidence-register review (2026-10-24)
+
+A separate, source-backed review copy was created at `cpaf_outputs/evidence_reviews/evidence_register_reviewed.csv`; the original template hash remained `1ab16c7f5cddf467100d9015528e621c8be4586a07ebdd342cc603b44981932b`. The review contains all 21 provider/dimension combinations exactly once. Seventeen rows are complete and score-eligible under the existing metadata gate; four remain unscored and explicitly unreviewed: Paytm — Anonymisation & Re-identification, plus DPDP Alignment for Paytm, Google Pay and PhonePe. The first gap is because the reviewed Paytm tokenization source concerns merchant payment-gateway tokenization and does not establish consumer-app transaction anonymization. The three DPDP gaps remain because policy statements do not establish operational legal compliance, and key statutory duties are still in their staged commencement period.
+
+The scored entries use official provider policies/help pages and are marked with the transparent reviewer label `CPAF research review (AI-assisted)`; this is documentary evidence scoring, not independent testing of technical controls. Human source and rubric review is still required before treating these scores as final academic judgments. Evidence-strength values are rubric judgments and are not empirically calibrated. The sourced register is not a set of real-world privacy measurements.
+
+- Sources/method and per-row rationale: `docs/EVIDENCE_REVIEW_20261024.md`; deterministic build command: `& $py scripts/build_evidence_review_20261024.py` (use `--confirm-overwrite` to replace an existing working review; a timestamped backup is created).
+- Tests: `& $py -m unittest discover -s tests -q` — 46 tests passed, exit 0.
+- Compilation: `& $py -m compileall -q cpaf cpaf_advanced.py cpaf_ml.py app.py tests scripts` — exit 0.
+- The new register-specific tests verify exact row coverage, URL syntax, score and strength bounds, score eligibility, explicit unscored gaps, safe missing-value display, CSV reload/schema, and unchanged source-template hash. Browser-level rendering was not tested in this register review.

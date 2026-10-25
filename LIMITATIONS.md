@@ -1,0 +1,18 @@
+# Limitations
+
+- All generated records and the predictive target are artificial and use simple assumed distributions.
+- The synthetic prediction label is generated from age, amount, hour, merchant type, and noise, while models receive overlapping predictors. ML utility therefore measures recovery of a known synthetic rule and is partly circular; it is not a real-world fraud prediction benchmark.
+- Generalization hierarchies are fixed; suppression can remove many rows. Guarantees apply only to declared QIs and the released table.
+- l-diversity is distinct-count only; t is categorical total variation only. Neither addresses all known inference risks.
+- Microaggregation is independent per column and can damage correlations.
+- The inherited three-model ML table is single-split. A separate repeated-split logistic run reports mean/std but is not a repeated comparison of every model family. Fairness is limited to synthetic age bands and one synthetic target.
+- Repeated stratified shuffle splits can overlap in their held-out rows. Reported standard deviations are descriptive across these repeats, not independent-sample confidence intervals.
+- The shadow MIA uses disjoint target/shadow/calibration/test partitions but evaluates one attack family and one seed. Failure or near-chance performance does not prove privacy.
+- Rare exact-QI rates depend on an intentionally high-cardinality exact transaction amount. Nearest-neighbor distances depend on the selected scaling and feature representation.
+- DP training/accounting remain `EXPERIMENTAL_UNVERIFIED`; the prior public-seeded noise was replaced with OS-backed randomness and delta is fixed public 1e-5, but no formal guarantee is claimed. Custom accounting, finite-precision Gaussian sampling, size-dependent normalization, upstream label-dependent partitioning, model selection, and metric releases remain unproved/outside scope. See `docs/DP_AUDIT.md`.
+- A trusted-library migration was investigated but not completed: Opacus secure-mode dependencies are incompatible with the current Python 3.12/Windows runtime as installed, and diffprivlib could not be fetched because PyPI DNS was unavailable. No library-backed result is reported. See `docs/DP_LIBRARY_MIGRATION_REPORT.md`.
+- No learned synthetic-data generator, l-diversity/t-closeness enforcement transformation, numerical t metric, full model-family repeated CV, global optimizer, output cache or consolidated PDF/report generator is included. Sweeps and Pareto results are finite and grid-scoped.
+- Streamlit 1.66.1 is importable. During the faculty-demo check, a local-only launch was attempted but the sandbox denied the loopback health request with a socket-permission error. In-process AppTest did not return rendered sections, so current dashboard startup/interaction remains unverified. No network or permission bypass was attempted; see `docs/RESULTS.md`.
+- New CLI runs refuse nonempty result directories; experiment writers also refuse to replace their matching artifact names when called directly. Dashboard experiments use timestamped output folders. Callers still need a fresh output directory for a run that combines different experiment types.
+- The original evidence template remains blank. The separate 2026-10-24 working register contains AI-assisted documentary scores for 17 rows; four rows remain unscored. Policy statements indicate disclosure, not independently verified implementation. Human reviewers should verify the dated sources and judgments before presenting them as final research findings.
+- Tests and experiments ran with bundled Python 3.12.14. A normal Windows terminal still needs Python 3.10–3.12 and the documented requirements.

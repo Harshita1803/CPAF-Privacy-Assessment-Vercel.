@@ -1,0 +1,10 @@
+# Optional isolated DP library proof-of-concept environment (Python 3.12).
+# Pinned to the available project runtime versions; diffprivlib itself was not
+# installed in the restricted audit environment and these pins are untested as a set.
+diffprivlib==0.6.6
+numpy==2.3.5
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+threadpoolctl==3.7.0
+setuptools==84.1.0

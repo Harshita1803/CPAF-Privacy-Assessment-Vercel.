@@ -1,0 +1,5 @@
+# Research contributions and evaluation
+
+The useful contribution is an integrated reproducible teaching workflow that keeps public evidence assessment distinct from synthetic experimentation, makes hierarchy/suppression diagnostics reusable across CLI and dashboard, checks schema and threshold compliance explicitly, and labels the custom DP accountant as unverified instead of presenting an unsupported formal guarantee. The contribution is methodological integration and transparent caveats, not a new privacy theorem or evidence about a payment provider.
+
+Suggested 20-mark assessment: research question and threat model (2); synthetic design, reproducibility and validation (3); transformation definitions and threshold diagnostics (4); utility/attack methodology and interpretation (3); evidence register, scoring and research integrity (3); implementation quality, tests and reproducibility artifacts (3); limitations and viva defense (2). Award marks only for behavior demonstrated by the current recorded reruns; see `docs/RESEARCH_READINESS.md` and `docs/RESULTS.md`. The DP implementation remains unverified and cannot support a formal guarantee claim.

@@ -1,0 +1,14 @@
+{
+  "n": 10000,
+  "k": 5,
+  "seed": 42,
+  "l": 2,
+  "t": 0.2,
+  "sweep_n": 1000,
+  "sweep_k": [1, 5, 10],
+  "sweep_l": [2, 3],
+  "sweep_t": [0.1, 0.2],
+  "sweep_levels": [1, 2],
+  "repeats": 3,
+  "output_dir": "cpaf_outputs/configured_run"
+}
